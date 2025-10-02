@@ -1,21 +1,55 @@
 [project]
 name = "mup-equinox"
-version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
-authors = [
-    { name = "Melina-Jingting", email = "melinajingting@gmail.com" }
-]
-requires-python = ">=3.9"
+version = "0.0.1"
+description = "Maximal Update Parametrization (muP) for Equinox models."
+authors = [{name = "Melina Jingting", email = "melinajingting@email.com"}]
+requires-python = ">=3.11"
 dependencies = [
-    "equinox>=0.11.10",
+    "equinox",
+    "jax[cuda12]",
+    "matplotlib>=3.10.6",
+    "omegaconf>=2.3.0",
+    "optax",
+    "pandas>=2.3.3",
+    "seaborn>=0.13.2",
+    "tqdm>=4.67.1",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Melina-Jingting/mup-equinox"
+
+# --- Development and Tooling Configuration ---
+
+[project.optional-dependencies]
+test = ["pytest"]
+dev = ["mup-equinox[test]", "ruff", "pre-commit"] # dev includes test dependencies
+docs = ["sphinx", "myst-nb", "furo"] # For documentation
+
+[tool.ruff]
+line-length = 88
+# Add any specific ruff rules you like here
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = ["tests"]
+
+# --- Build configuration ---
+
 [build-system]
-requires = ["uv_build>=0.8.22,<0.9.0"]
-build-backend = "uv_build"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
     "ruff>=0.13.2",
 ]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mup_equinox = ["py.typed"]
