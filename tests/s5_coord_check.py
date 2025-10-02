@@ -27,13 +27,20 @@ class GLU(eqx.Module):
     w1: eqx.nn.Linear
     w2: eqx.nn.Linear
 
-    def __init__(self, input_dim, output_dim, init, key):
+    def __init__(self, input_dim, output_dim, key):
         w1_key, w2_key = jr.split(key, 2)
         self.w1 = eqx.nn.Linear(input_dim, output_dim, use_bias=True, key=w1_key)
         self.w2 = eqx.nn.Linear(input_dim, output_dim, use_bias=True, key=w2_key)
 
     def __call__(self, x):
         return self.w1(x) * jax.nn.sigmoid(self.w2(x))
+    
+    def get_activations(self, x):
+        return {
+            "w1_out": self.w1(x),
+            "w2_out": self.w2(x),
+            "glu_out": self.__call__(x)
+        }
 
 
 def make_HiPPO(N):
@@ -323,7 +330,7 @@ class S5Layer(eqx.Module):
         discretisation: str = "zoh",
         dt_min: float = 0.001,
         dt_max: float = 0.1,
-        step_rescale: int = 1,
+        step_rescale: float = 1.0,
         *,
         key
     ):
@@ -416,7 +423,14 @@ class S5Layer(eqx.Module):
         Du = jax.vmap(lambda u: self.D * u)(input_sequence)
         return ys + Du
     
-    def get_activations(self, input_sequence, *, layer_keys: list[str] | str | None = None):
+    def get_activations(self, input_sequence, *, layer_keys: list[str] | str | None = None, return_outputs=False):
+        
+        activations = {}
+        def _capture(k, v):
+            if k in ["ssm_output", "ssm_state"]  or layer_keys == "all" or k in layer_keys:
+                activations[k] = v
+                return
+        
         if self.clip_eigs:
             Lambda = jnp.clip(self.Lambda_re, None, -1e-4) + 1j * self.Lambda_im
         else:
@@ -437,14 +451,209 @@ class S5Layer(eqx.Module):
                 "Discretization method {} not implemented".format(self.discretisation)
             )
 
-        ys, xs = apply_ssm_with_activations(Lambda_bar, B_bar, C_tilde, input_sequence, self.conj_sym)
+        Cx, state = apply_ssm_with_activations(Lambda_bar, B_bar, C_tilde, input_sequence, self.conj_sym)
+        _capture("ssm_state", state)
 
         # Add feedthrough matrix output Du;
         Du = jax.vmap(lambda u: self.D * u)(input_sequence)
-        return {
-            "ssm_output": ys + Du,
-            "ssm_states": xs
-        }
+        output = Cx + Du
+        _capture("ssm_output", Cx + Du)
+        
+        if return_outputs:
+            return output, activations
+        else:
+            return activations
+
+
+class S5Block(eqx.Module):
+    # norm: eqx.nn.BatchNorm
+    ssm: S5Layer
+    glu: eqx.Module  # Changed from GLU to the more general eqx.Module
+    drop: eqx.nn.Dropout 
+
+    def __init__(
+        self,
+        ssm_size,
+        H,
+        blocks: int = 1,
+        C_init: str = "trunc_standard_normal",
+        conj_sym: bool = True,
+        clip_eigs: bool = False,
+        discretisation: str = "zoh",
+        dt_min: float = 0.001,
+        dt_max: float = 0.1,
+        step_rescale: float = 1.0,
+        use_glu: bool = True,  # <-- Add this parameter
+        drop_rate=0.05,
+        *,
+        key
+    ):
+        ssmkey, glukey = jr.split(key, 2)
+        # self.norm = eqx.nn.BatchNorm(
+        #     input_size=H, axis_name="batch", channelwise_affine=False, mode="batch"
+        # )
+        self.ssm = S5Layer(
+            ssm_size,
+            blocks,
+            H,
+            C_init,
+            conj_sym,
+            clip_eigs,
+            discretisation,
+            dt_min,
+            dt_max,
+            step_rescale,
+            key=ssmkey,
+        )
+
+        # Conditionally initialize the GLU or an Identity layer
+        if use_glu:
+            self.glu = GLU(H, H, key=glukey)
+        else:
+            self.glu = eqx.nn.Identity()
+
+        self.drop = eqx.nn.Dropout(p=drop_rate)
+
+    # No changes are needed for the __call__ method.
+    def __call__(self, x, state, *, key):
+        """Compute S5 block."""
+        dropkey1, dropkey2 = jr.split(key, 2)
+        skip = x
+        # x, state = self.norm(x.T, state)
+        # x = x.T
+        x = self.ssm(x)
+        x = jax.nn.gelu(x)
+        x = self.drop(x, key=dropkey1)
+        x = jax.vmap(self.glu)(x)  # This line works for both GLU and Identity
+        x = self.drop(x, key=dropkey2)
+        return x, state
+
+    def get_activations(self, x, state, *, layer_keys: list[str] | str | None = None, return_outputs=False):
+        """Compute S5 block."""
+        
+        activations = {}
+        def _capture(k, v):
+            if k in ["ssm_output", "ssm_state"]  or layer_keys == "all" or k in layer_keys:
+                activations[k] = v
+                return
+        
+        # x, state = self.norm(x.T, state)
+        # x = x.T
+        x, ssm_activations = self.ssm.get_activations(x, return_outputs=True)
+        activations.update(ssm_activations)
+        post_gelu = jax.nn.gelu(x)
+        _capture(f"ssm_post_gelu", post_gelu)
+        post_glu = jax.vmap(self.glu)(post_gelu)
+        _capture(f"ssm_post_glu", post_glu)
+        if return_outputs:
+            return post_glu, state, activations
+        else:
+            return activations
+
+class SSMDownstreamDecoder(eqx.Module):
+    encoder: eqx.nn.Linear
+    ssm_blocks: List[S5Block]
+    decoder: eqx.nn.Linear
+    
+    encoder_dropout: eqx.nn.Dropout = eqx.field(static=True)
+    decoder_dropout: eqx.nn.Dropout = eqx.field(static=True)
+
+    def __init__(
+        self,
+        input_dim,
+        ssm_io_dim,
+        ssm_state_dim,
+        ssm_num_layers,
+        output_dim,
+        ssm_init_diag_blocks: int = 4,
+        dropout_p: float = 0.1,
+        C_init: str = "trunc_standard_normal",
+        conj_sym: bool = True,
+        clip_eigs: bool = False,
+        discretisation: str = "zoh",
+        dt_min: float = 0.001,
+        dt_max: float = 0.1,
+        step_rescale: float = 1.0,
+        use_glu: bool = True,
+        *,
+        key
+    ):
+        encoder_key, block_key, decoder_key = jr.split(key, 3)
+
+        self.encoder = eqx.nn.Linear(input_dim, ssm_io_dim, key=encoder_key)
+        self.encoder_dropout = eqx.nn.Dropout(p=dropout_p)
+
+        block_keys = jr.split(block_key, ssm_num_layers)
+        self.ssm_blocks = [
+            S5Block(
+                ssm_size=int(ssm_io_dim),
+                blocks=ssm_init_diag_blocks,
+                H=ssm_state_dim,
+                C_init=C_init,
+                conj_sym=conj_sym,
+                clip_eigs=clip_eigs,
+                discretisation=discretisation,
+                dt_min=dt_min,
+                dt_max=dt_max,
+                step_rescale=step_rescale,
+                use_glu=use_glu,
+                drop_rate=dropout_p,
+                key=key,
+            )
+            for key in block_keys
+        ]
+
+        self.decoder = eqx.nn.Linear(ssm_io_dim, output_dim, key=decoder_key)
+        self.decoder_dropout = eqx.nn.Dropout(p=dropout_p)
+
+    def __call__(self, x, state, key):
+        # Project input to SSM dimension
+        x = jax.vmap(self.encoder)(x)
+
+        nkeys = 2 + len(self.ssm_blocks)
+        key, *dropkeys = jr.split(key, nkeys+1)
+
+        x = self.encoder_dropout(x, key=dropkeys[0])
+
+        for block, k in zip(self.ssm_blocks, dropkeys[1:-1]):
+            x, state = block(x, state, key=k)
+            
+        x = jax.vmap(self.decoder)(x)
+        x = self.decoder_dropout(x, key=dropkeys[-1])
+        return x, state
+
+    def get_activations(self, x, state, layer_keys: list[str] | str | None = None, return_outputs=False):
+        """
+        Computes S5 and optionally returns a dictionary of intermediate activations.
+        
+        Args:
+            x: Input tensor
+            state: Model state
+            key: PRNG key
+            layer_keys: List of activation keys to capture. Special case: if "ssm_post_activation"
+                        is included, activations for all SSM layers will be captured.
+        """
+        def _capture(k, v):
+            if k in layer_keys or layer_keys == "all" or layer_keys is None:
+                activations[k] = v
+                return
+            
+        activations = {}
+        layer_keys = layer_keys
+        
+        x = jax.vmap(self.encoder)(x)
+        _capture("post_encoder", x)
+        
+        for i, block in enumerate(self.ssm_blocks):
+            x, state, block_activations = block.get_activations(x, state, layer_keys=layer_keys, return_outputs=True)
+            activations.update({f"{k}_{i}": v for k, v in block_activations.items()})
+        
+        x = jax.vmap(self.decoder)(x)
+        _capture("output", x)
+        if return_outputs:        
+            return x, state, activations
+        else:
+            return activations
 #######
 
 
@@ -469,22 +678,28 @@ def make_dataset(batch_size: int = 32, rng_seed: int = 0, timesteps: int = 100, 
 
 @eqx.filter_jit
 @eqx.filter_grad
-def loss_fn(model, batch):
-    output = jax.vmap(model)(batch["inputs"].reshape(batch["inputs"].shape[0], 4))
+def loss_fn(
+    model: eqx.Module, 
+    batch: TrainingBatch,
+    state: eqx.nn.State
+    ) -> tuple[Float[Array, ""], eqx.nn.State]:
+    output, state = jax.vmap(model, in_axes=(0, None, None))(batch["inputs"], state, jr.PRNGKey(0))
     loss = optax.squared_error(
-        output, batch["labels"].reshape(-1)
+        output, batch["labels"]
     ).mean()
     return loss
 
 
 model_factory = ModelFactory(
-    constructor=S5Layer, 
+    constructor=SSMDownstreamDecoder, 
     base_kwargs={
-        "ssm_size": 16,
-        "blocks": 4,
-        "H": 16
+        "input_dim": 10,
+        "ssm_io_dim": 16,
+        "ssm_state_dim": 16,
+        "output_dim": 2,
+        "ssm_num_layers": 2
         },
-    width_kwargs_names=("ssm_size","H"),
+    width_kwargs_names=("ssm_io_dim", "ssm_state_dim"),
     )
 optimizer_factory = OptimizerFactory(
     optimizer_fn=optax.adam,
@@ -501,7 +716,7 @@ training_cfg = TrainingConfig(
 coord_cfg = CoordinateCheckConfig(
     widths = [2**i for i in range(-1, 9)],
     rng_seeds = range(4),
-    dataset_factory = lambda: make_dataset(batch_size=128, rng_seed=0),
+    dataset_factory = lambda: make_dataset(batch_size=128, rng_seed=0, in_channels=10, out_channels=2),
     steps  = 50
 )
 runner = CoordinateCheckRunner(training_cfg, coord_cfg)

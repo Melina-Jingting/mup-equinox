@@ -2,10 +2,10 @@ import equinox as eqx
 from jaxtyping import Array
 from .utils import flexible_path_metadata_tree_map
 
+
 class ParameterizationMetadata(eqx.Module):
     """Model Parameters with Dimension Metadata for Maximal Update Parameterization (MuP)."""
 
-    value: Array  # parameter value
     dims: tuple[float | None, ...] = eqx.field(
         static=True
     )  # mup dims, None for finite dims
@@ -67,20 +67,19 @@ def build_param_metadata(
     Notes:
         assumes earlier validation guarantees structural parity; only relative dimension ratios are computed. Raises the underlying helper errors on mismatch.
     """
-    base_params, _ = eqx.partition(base_model, eqx.is_array_like)
-    target_params, _ = eqx.partition(target_model, eqx.is_array_like)
+    base_params, _ = eqx.partition(base_model, eqx.is_inexact_array)
+    target_params, _ = eqx.partition(target_model, eqx.is_inexact_array)
 
     def _get_metadata_leaf(base_param, target_param):
         dims = []
 
-        # reversed because weight shapes are (out_features, in_features)
         for base_dim, target_dim in zip(
             reversed(base_param.shape), reversed(target_param.shape)
         ):
             dims.append(
                 target_dim / base_dim
             ) if target_dim != base_dim else dims.append(None)
-        return ParameterizationMetadata(value=target_param, dims=tuple(dims))
+        return ParameterizationMetadata(dims=tuple(dims))
 
     meta_params = flexible_path_metadata_tree_map(
         _get_metadata_leaf,

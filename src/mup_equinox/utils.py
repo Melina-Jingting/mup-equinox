@@ -1,7 +1,8 @@
 from typing import Any, Callable
-import jax.tree as jt 
+import jax.tree as jt
 import equinox as eqx
 import functools
+
 
 class TreePathError(RuntimeError):
     path: tuple
@@ -67,6 +68,8 @@ def flexible_path_metadata_tree_map(
         for t, rest_path_leaf in enumerate(rest_paths_leaves):
             _, rest_leaf = rest_path_leaf
             if eqx.is_array_like(leaf) and eqx.is_array_like(rest_leaf):
+                if isinstance(leaf, (int, float)) and isinstance(rest_leaf, (int, float)):
+                    continue 
                 if len(leaf.shape) != len(rest_leaf.shape):
                     raise ValueError(
                         f"#Dim mismatch: {leaf.shape} vs {rest_leaf.shape} at path {path} for tree {t + 1}"
@@ -79,12 +82,6 @@ def flexible_path_metadata_tree_map(
             _check_type(*xs) if check_type else None
             _check_ndims(*xs) if check_ndims else None
             return f(*[x[1] for x in xs])  # pass only the leaves to f
-        except TreePathError as e:
-            path = xs[0][0]
-            combo_path = path + e.path
-            exc = TreePathError(f"Error at leaf with path {combo_path}")
-            exc.path = combo_path
-            raise exc from e
         except Exception as e:
             path = xs[0][0]
             exc = TreePathError(f"Error at leaf with path {path}")

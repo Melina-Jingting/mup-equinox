@@ -34,7 +34,6 @@ def build_base_and_scaled_models(
     return base_model, scaled_model, state
 
 
-
 def scale_initializations(
     model: eqx.Module,
     metadata: eqx.Module,
@@ -51,7 +50,7 @@ def scale_initializations(
     Raises: ValueError for unsupported param_type. Leaves without metadata are returned untouched, so you can mix MuP-managed and fixed parameters.
     """
 
-    params, static = eqx.partition(model, eqx.is_array_like)
+    params, static = eqx.partition(model, eqx.is_inexact_array)
     meta_params, _ = eqx.partition(
         metadata, lambda x: isinstance(x, ParameterizationMetadata)
     )
@@ -76,11 +75,10 @@ def scale_initializations(
         _init_leaf,
         params,
         meta_params,
-        is_leaf=lambda x: eqx.is_array_like(x)
+        is_leaf=lambda x: eqx.is_inexact_array(x)
         or isinstance(x, ParameterizationMetadata),
     )
     return eqx.combine(scaled_params, static)
-
 
 
 def scale_gradients(
@@ -134,7 +132,7 @@ def scale_gradients(
             _scale_grad,
             updates,
             metadata,
-            is_leaf=lambda x: eqx.is_array_like(x)
+            is_leaf=lambda x: eqx.is_inexact_array(x)
             or isinstance(x, ParameterizationMetadata),
         )
         return scaled_updates, state

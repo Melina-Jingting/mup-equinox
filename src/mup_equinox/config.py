@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import dataclasses
 from omegaconf import OmegaConf
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Optional
 import equinox as eqx
 import optax
 from .scalers import scale_initializations, scale_gradients
@@ -16,7 +16,7 @@ class ModelFactory:
     base_kwargs: dict
     width_kwargs_names: Sequence[str]
     rng_seed: int = 0
-    param_type: str = 'muP_3'
+    param_type: str = "muP_3"
 
     @classmethod
     def from_config(cls, constructor, cfg_path: str, **kwargs):
@@ -31,10 +31,10 @@ class ModelFactory:
 
     def with_rng(self, rng_seed: int) -> "ModelFactory":
         return dataclasses.replace(self, rng_seed=rng_seed)
-    
+
     def with_param_type(self, param_type: str) -> "ModelFactory":
         return dataclasses.replace(self, param_type=param_type)
-    
+
     def _multiply_width(self, base_val, width_multiplier):
         if isinstance(base_val, int):
             return int(round(base_val * width_multiplier))
@@ -79,7 +79,7 @@ class OptimizerFactory:
             raise ValueError(
                 f"Cannot infer optimizer_type from optimizer_fn name '{self.optimizer_fn.__name__}'. Please use a standard optimizer."
             )
-    
+
     def build(self, metadata) -> optax.GradientTransformation:
         base_opt = self.optimizer_fn(**self.hyperparams)
         scaled_opt = scale_gradients(
@@ -92,8 +92,6 @@ class OptimizerFactory:
 class TrainingConfig:
     model_factory: ModelFactory
     optimizer_factory: OptimizerFactory
-    loss_fn: Callable[[eqx.Module, dict], jnp.ndarray]  # (model, batch) -> loss
+    loss_fn: Callable[[eqx.Module, Optional[eqx.nn.State], dict], jnp.ndarray]  # (model, batch) -> loss
     width_multiplier: float
     rng_seed: int = 0
-
-

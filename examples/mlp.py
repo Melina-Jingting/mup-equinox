@@ -1,9 +1,10 @@
 from mup_equinox import (
-    TrainingConfig, 
-    CoordinateCheckConfig, 
-    ModelFactory, 
+    TrainingConfig,
+    CoordinateCheckConfig,
+    ModelFactory,
     OptimizerFactory,
-    CoordinateCheckRunner)
+    CoordinateCheckRunner,
+)
 import equinox as eqx
 import optax
 from typing import Iterator, TypedDict
@@ -62,9 +63,7 @@ def make_dataset(batch_size: int = 32, rng_seed: int = 0) -> Iterator[TrainingBa
     key = jr.PRNGKey(rng_seed)
     while True:
         key, input_subkey, label_subkey = jr.split(key, 3)
-        inputs = jr.uniform(
-            input_subkey, minval=0.0, maxval=1.0, shape=(batch_size, 4)
-        )
+        inputs = jr.uniform(input_subkey, minval=0.0, maxval=1.0, shape=(batch_size, 4))
         labels = jr.randint(label_subkey, shape=(batch_size, 1), minval=0, maxval=9)
         yield TrainingBatch(inputs=inputs, labels=labels)
 
@@ -80,19 +79,19 @@ def loss_fn(model, batch):
 
 
 model_factory = ModelFactory(
-    constructor=MLP, 
+    constructor=MLP,
     base_kwargs={"in_size": 4, "out_size": 1, "width_size": 16, "depth": 3},
     width_kwargs_names=("width_size",),
-    )
+)
 optimizer_factory = OptimizerFactory(
     optimizer_fn=optax.adam,
     hyperparams={"learning_rate": 1e-3},
 )
 training_cfg = TrainingConfig(
-    model_factory=model_factory, 
-    optimizer_factory=optimizer_factory, 
+    model_factory=model_factory,
+    optimizer_factory=optimizer_factory,
     loss_fn=loss_fn,
-    width_multiplier=4.0
+    width_multiplier=4.0,
 )
 
 # Regular use (zero-shot transfer)

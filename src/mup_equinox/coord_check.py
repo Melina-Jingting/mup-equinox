@@ -8,6 +8,7 @@ import equinox as eqx
 from typing import Sequence, Callable, Iterable, Any 
 import os
 import numpy as np
+import inspect
 # from .validators import ensure_activation_interface
 # from ..training.builders import build_model_and_state, build_optimizer
 
@@ -27,6 +28,16 @@ class CoordinateCheckRunner:
         self.training_cfg = training_cfg
         self.coord_cfg = coord_cfg
 
+    def _get_activations(self, model, inputs, state=None):
+        """Intelligently call get_activations based on the method signature."""
+        sig = inspect.signature(model.get_activations)
+        
+        # Check if 'state' is in the signature
+        if 'state' in sig.parameters:
+            return model.get_activations(inputs, state=state, layer_keys=self.coord_cfg.capture_layers)
+        else:
+            return model.get_activations(inputs, layer_keys=self.coord_cfg.capture_layers)
+
     def run(self, output_dir):
         dataset_iter = self.coord_cfg.dataset_factory()
         batch = next(dataset_iter)
@@ -39,18 +50,18 @@ class CoordinateCheckRunner:
                     cfg = dataclasses.replace(self.training_cfg, width_multiplier=width, rng_seed=seed)
                     model, state, metadata = cfg.model_factory.with_rng(seed).with_param_type(param_type).build(cfg.width_multiplier)
                     if not hasattr(model, "get_activations"):
-                        raise AttributeError("Model must implement get_activations(...) for coordinate checks.")
+                        raise AttributeError("Model must have method get_activations(x)->(activations)  for coordinate checks.")
 
                     optimizer = cfg.optimizer_factory.build(metadata)
                     opt_state = optimizer.init(eqx.filter(model, eqx.is_inexact_array))
 
-                    a0 = eqx.nn.inference_mode(model, value=True).get_activations(inputs, layer_keys=self.coord_cfg.capture_layers)
+                    a0 = self._get_activations(eqx.nn.inference_mode(model, value=True), inputs, state)
                     for _ in range(self.coord_cfg.steps):
-                        grads = cfg.loss_fn(model, batch)
+                        grads = cfg.loss_fn(model, batch, state)
                         updates, opt_state = optimizer.update(grads, opt_state, model)
                         model = eqx.apply_updates(model, updates)
 
-                    a1 = eqx.nn.inference_mode(model, value=True).get_activations(inputs, layer_keys=self.coord_cfg.capture_layers)
+                    a1 = self._get_activations(eqx.nn.inference_mode(model, value=True), inputs, state)
                     norm_a1 = jt.map(lambda x: jnp.mean(jnp.abs(x)), a1)
                     norm_delta = jt.map(lambda x, y: jnp.mean(jnp.abs(x - y)), a0, a1)
 
@@ -125,7 +136,7 @@ def plot_coord_check_results(
         
 
     handles, labels = ax.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.95), ncol=len(labels), title="Layers")
+    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.95), ncol=5, title="Layers")
 
     fig.suptitle(title or "Coordinate Check Results", y=0.98)
     fig.tight_layout(rect=(0, 0, 1, 0.9))
