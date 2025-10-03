@@ -1,7 +1,6 @@
 import equinox as eqx
-from jaxtyping import Array
-from .utils import flexible_path_metadata_tree_map
-
+from jax.tree_util import GetAttrKey, SequenceKey
+from .utils import flexible_path_metadata_tree_map_with_path
 
 class ParameterizationMetadata(eqx.Module):
     """Model Parameters with Dimension Metadata for Maximal Update Parameterization (MuP)."""
@@ -9,6 +8,7 @@ class ParameterizationMetadata(eqx.Module):
     dims: tuple[float | None, ...] = eqx.field(
         static=True
     )  # mup dims, None for finite dims
+    path: tuple = eqx.field(static=True)  # path in the pytree
 
     @property
     def ndims(self) -> int:
@@ -52,6 +52,35 @@ class ParameterizationMetadata(eqx.Module):
     def is_hidden_weight(self) -> bool:
         """A weight that maps from an infinite dimension to an infinite dimension."""
         return self.is_matrix_like
+    
+    def path_suffix_has(self, *segments: str) -> bool:
+        if not segments:
+            return True
+        keys = [
+            k.name if isinstance(k, GetAttrKey)
+            else k.idx if isinstance(k, SequenceKey)
+            else str(k)
+            for k in self.path
+        ]
+        pattern = list(segments)
+        window = len(pattern)
+        if window > len(keys):
+            return False
+        for start in range(len(keys) - window + 1):
+            if keys[start : start + window] == pattern:
+                return True
+        return False
+    
+    @property
+    def is_ssm_a(self) -> bool:
+        return self.path_suffix_has("ssm", "Lambda_re") or \
+                self.path_suffix_has("ssm", "Lambda_im") or \
+                self.path_suffix_has("ssm", "log_step")
+
+    @property
+    def is_ssm_b(self) -> bool:
+        return self.path_suffix_has("ssm", "B")
+        
 
 
 def build_param_metadata(
@@ -70,7 +99,7 @@ def build_param_metadata(
     base_params, _ = eqx.partition(base_model, eqx.is_inexact_array)
     target_params, _ = eqx.partition(target_model, eqx.is_inexact_array)
 
-    def _get_metadata_leaf(base_param, target_param):
+    def _get_metadata_leaf(path, base_param, target_param):
         dims = []
 
         for base_dim, target_dim in zip(
@@ -79,9 +108,9 @@ def build_param_metadata(
             dims.append(
                 target_dim / base_dim
             ) if target_dim != base_dim else dims.append(None)
-        return ParameterizationMetadata(dims=tuple(dims))
+        return ParameterizationMetadata(path=path, dims=tuple(dims))
 
-    meta_params = flexible_path_metadata_tree_map(
+    meta_params = flexible_path_metadata_tree_map_with_path(
         _get_metadata_leaf,
         base_params,
         target_params,

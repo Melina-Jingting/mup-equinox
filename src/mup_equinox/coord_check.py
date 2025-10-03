@@ -9,6 +9,8 @@ from typing import Sequence, Callable, Iterable, Any
 import os
 import numpy as np
 import inspect
+import matplotlib.lines as mlines
+from .utils import ordered_tree_map
 # from .validators import ensure_activation_interface
 # from ..training.builders import build_model_and_state, build_optimizer
 
@@ -19,6 +21,7 @@ class CoordinateCheckConfig:
     dataset_factory: Callable[[], Iterable]  # yields TrainingBatch
     steps: int = 100
     metrics: Sequence[str] = ("activation_norms", "activation_deltas")
+    param_types: Sequence[str] = ("muP_3", "standard")
     capture_layers: Sequence[str] | str = "all"
 
 class CoordinateCheckRunner:
@@ -39,12 +42,12 @@ class CoordinateCheckRunner:
             return model.get_activations(inputs, layer_keys=self.coord_cfg.capture_layers)
 
     def run(self, output_dir):
-        dataset_iter = self.coord_cfg.dataset_factory()
+        dataset_iter = iter(self.coord_cfg.dataset_factory())
         batch = next(dataset_iter)
         inputs = batch["inputs"][0]
 
         norms, deltas = [], []
-        for param_type in ["muP_3", "standard"]:
+        for param_type in self.coord_cfg.param_types:
             for width in self.coord_cfg.widths:
                 for seed in self.coord_cfg.rng_seeds:
                     cfg = dataclasses.replace(self.training_cfg, width_multiplier=width, rng_seed=seed)
@@ -62,8 +65,8 @@ class CoordinateCheckRunner:
                         model = eqx.apply_updates(model, updates)
 
                     a1 = self._get_activations(eqx.nn.inference_mode(model, value=True), inputs, state)
-                    norm_a1 = jt.map(lambda x: jnp.mean(jnp.abs(x)), a1)
-                    norm_delta = jt.map(lambda x, y: jnp.mean(jnp.abs(x - y)), a0, a1)
+                    norm_a1 = {k: jnp.mean(jnp.abs(v)) for k, v in a1.items()}
+                    norm_delta = {k: jnp.mean(jnp.abs(a1[k] - a0[k])) for k in a1.keys()}
 
                     norms.append({"param_type": param_type, "width_multiplier": width, "rng_seed": seed, **norm_a1})
                     deltas.append({"param_type": param_type, "width_multiplier": width, "rng_seed": seed, **norm_delta})
@@ -76,12 +79,13 @@ class CoordinateCheckRunner:
             df = pd.DataFrame(data)
             df.to_csv(os.path.join(output_dir, f"{name}.csv"), index=False)
             
-        plot_coord_check_results(data_dir=output_dir, metrics=self.coord_cfg.metrics)
+        plot_coord_check_results(data_dir=output_dir, metrics=self.coord_cfg.metrics, param_types=self.coord_cfg.param_types)
         
             
 def plot_coord_check_results(
     data_dir: str,
     metrics: Sequence[str] = ("activation_norms", "activation_deltas"),
+    param_types: Sequence[str] = ("muP_3", "standard"),
     title: str | None = None,
 ):
     """Plot coordinate check results from CSV files in ``data_dir``."""
@@ -94,13 +98,16 @@ def plot_coord_check_results(
         "activation_norms": r"$\frac{\|x\|_2}{\sqrt{N_x}}$",
         "activation_deltas": r"$\frac{\|\Delta x\|_2}{\sqrt{N_x}}$",
     }
-    param_labels = {"muP_3": r"$\mu P$", "standard": "SP"}
+    param_labels = {"muP_3": r"$\mu P$", "muP_SSM": r"$\mu P-SSM$", "standard": "SP"}
 
     rows = len(metrics)
-    fig, axes = plt.subplots(rows, 2, figsize=(12, 4 * rows), sharey=False)
-    axes = axes.reshape(rows, 2)
+    cols = len(param_types)
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 4 * rows), sharey='row')
+    axes = axes.reshape(rows, cols)
 
-    legend_entries: dict[str, Any] = {}
+    layer_order: list[str] = []
+    layer_colors: dict[str, Any] = {}
+    layer_labels: dict[str, str] = {}
 
     for row_idx, metric in enumerate(metrics):
         df = pd.read_csv(os.path.join(data_dir, f"{metric}.csv"))
@@ -111,7 +118,13 @@ def plot_coord_check_results(
             if col not in ("param_type", "width_multiplier", "rng_seed")
         ]
 
-        for col_idx, param_type in enumerate(["muP_3", "standard"]):
+        if not layer_order and layers:
+            layer_order = list(layers)
+            palette = sns.color_palette("viridis", len(layer_order))
+            layer_colors.update({layer: palette[idx] for idx, layer in enumerate(layer_order)})
+            layer_labels.update({layer: f"{idx + 1}. {layer}" for idx, layer in enumerate(layer_order)})
+
+        for col_idx, param_type in enumerate(param_types):
             ax = axes[row_idx, col_idx]
             param_df = df[df["param_type"] == param_type]
             if param_df.empty:
@@ -124,19 +137,38 @@ def plot_coord_check_results(
                     x="width_multiplier",
                     y=layer,
                     marker="o",
-                    label=layer,
+                    label=layer_labels.get(layer, layer),
                     legend=False,
                     ax=ax,
+                    color=layer_colors.get(layer),
                 )
 
             ax.set_title(param_labels.get(param_type, param_type)) if metric == metrics[0] else ax.set_title("")
-            ax.set_ylabel(metric_labels.get(metric, metric.replace("_", " ").title())) if param_type == "muP_3" else ax.set_ylabel("")
-            ax.set_xlabel(r"$\log_2 width$") if metric == metrics[-1] else ax.set_xlabel("")
+            ax.set_ylabel(metric_labels.get(metric, metric.replace("_", " ").title())) if col_idx == 0 else ax.set_ylabel("")
+            ax.set_xlabel(r"$\log_2 width\ scale$") if metric == metrics[-1] else ax.set_xlabel("")
             ax.set_xticks(range(int(np.min(df["width_multiplier"])), int(np.max(df["width_multiplier"]) + 1)))
-        
+            ax.set_yscale("log")
 
-    handles, labels = ax.get_legend_handles_labels()
-    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.95), ncol=5, title="Layers")
+    if layer_order:
+        legend_handles = [
+            mlines.Line2D(
+                [],
+                [],
+                color=layer_colors[layer],
+                marker="o",
+                linestyle="-",
+                label=layer_labels[layer],
+            )
+            for layer in layer_order
+        ]
+        fig.legend(
+            legend_handles,
+            [layer_labels[layer] for layer in layer_order],
+            loc="upper center",
+            bbox_to_anchor=(0.5, 0.95),
+            ncol=min(len(legend_handles), 5),
+            title="Layers (in activation order)",
+        )
 
     fig.suptitle(title or "Coordinate Check Results", y=0.98)
     fig.tight_layout(rect=(0, 0, 1, 0.9))

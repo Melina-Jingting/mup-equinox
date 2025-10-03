@@ -107,4 +107,4 @@ coord_cfg = CoordinateCheckConfig(
     steps=50,
 )
 runner = CoordinateCheckRunner(training_cfg, coord_cfg)
-runner.run(output_dir="results/coord_check")
+runner.run(output_dir="results/coord_check/mlp")

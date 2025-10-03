@@ -45,7 +45,11 @@ def scale_initializations(
     Parameters:
         model: Equinox module to adjust.
         metadata: pytree of ParameterizationMetadata sharing the model’s structure.
-        param_type: 'muP_3' (default) or 'standard', controlling the scaling rules.
+        param_type: controls the scaling scheme. Supported types:
+            'muP_3' - Based on Table 3 of Yang & Hu et at. 2022 https://arxiv.org/abs/2203.03466)  
+            'muP_SSM' - (LTI SSM) For S4 based on Appendix C.3 in Vankadara & Xu et al. 2024 https://proceedings.neurips.cc/paper_files/paper/2024/file/9c7eeda2dc98e61baa9a5884afd231bc-Paper-Conference.pdf)
+                        Note the difference is in initialization scaling of B matrix and SSM A parameters.
+            'standard' - No changes to standard scaling, for comparison.
     Returns: new Equinox module combining scaled parameters with original static fields.
     Raises: ValueError for unsupported param_type. Leaves without metadata are returned untouched, so you can mix MuP-managed and fixed parameters.
     """
@@ -58,18 +62,23 @@ def scale_initializations(
     def _init_leaf(param, meta):
         if meta is None:
             return param
+        
         if param_type == "muP_3":
-            if meta.is_output_weight:
-                return (
-                    param / (meta.width**0.5)
-                    if init_output_zero == False
-                    else param * 0.0
-                )
+            return param / (meta.width**0.5) if meta.is_output_weight else param
+
+        elif param_type == "muP_SSM":
+            if meta.is_output_weight: 
+                return param / (meta.width**0.5)
+            if meta.is_ssm_b:
+                return param * (meta.width**0.5)
             else:
                 return param
-        if param_type == "standard":
+            
+        elif param_type == "standard":
             return param
-        raise ValueError(f"Unsupported param_type '{param_type}'")
+        
+        else:
+            raise ValueError(f"Unsupported param_type '{param_type}'")
 
     scaled_params = flexible_path_metadata_tree_map(
         _init_leaf,
@@ -100,23 +109,45 @@ def scale_gradients(
     def _scale_grad(grad, meta):
         if meta is None:
             return grad
+        
         if param_type == "muP_3":
             if optimizer_type == "adam_like":
-                return (
-                    grad / meta.width
-                    if (meta.is_output_weight or meta.is_hidden_weight)
-                    else grad
-                )
+                # input & biases
+                if (meta.is_vector_like and not meta.is_output_weight) or \
+                    (meta.is_ssm_a): # don't scale SSM A gradients
+                    return grad
+                # output & hidden weights
+                elif meta.is_output_weight or meta.is_hidden_weight: 
+                    return grad / meta.width
+                else:
+                    return grad
+                
             if optimizer_type == "sgd_like":
-                grad = (
-                    grad * meta.width
-                    if (meta.is_vector_like and not meta.is_output_weight)
-                    else grad
-                )
-                grad = grad / meta.width if meta.is_output_weight else grad
-                return grad
+                # input & biases
+                if meta.is_vector_like and not meta.is_output_weight: 
+                    return grad * meta.width
+                # output weights
+                elif meta.is_output_weight: 
+                    return grad / meta.width
+                # hidden weights
+                else: 
+                    return grad
+        
+        elif param_type == "muP_SSM":
+            if optimizer_type in ("adam_like", "sgd_like"):
+                # input & biases
+                if (meta.is_vector_like and not meta.is_output_weight):
+                    return grad * meta.width
+                # output & hidden weights
+                elif meta.is_output_weight: 
+                    return grad / meta.width
+                else:
+                    return grad
+        
         elif param_type == "standard":
-            return grad
+            if optimizer_type in ("adam_like", "sgd_like"):
+                return grad
+            
         raise ValueError(
             f"""Unsupported param_type '{param_type}'. Only 'muP_3' and 'standard' are supported."""
         )

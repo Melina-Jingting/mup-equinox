@@ -92,6 +92,6 @@ class OptimizerFactory:
 class TrainingConfig:
     model_factory: ModelFactory
     optimizer_factory: OptimizerFactory
-    loss_fn: Callable[[eqx.Module, Optional[eqx.nn.State], dict], jnp.ndarray]  # (model, batch) -> loss
+    loss_fn: Callable[[eqx.Module, dict, Optional[eqx.nn.State]], jnp.ndarray]  # (model, batch) -> loss
     width_multiplier: float
     rng_seed: int = 0

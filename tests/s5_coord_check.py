@@ -483,7 +483,7 @@ class S5Block(eqx.Module):
         dt_min: float = 0.001,
         dt_max: float = 0.1,
         step_rescale: float = 1.0,
-        use_glu: bool = True,  # <-- Add this parameter
+        use_glu: bool = True, 
         drop_rate=0.05,
         *,
         key
@@ -714,10 +714,11 @@ training_cfg = TrainingConfig(
 
 # Coordinate check
 coord_cfg = CoordinateCheckConfig(
-    widths = [2**i for i in range(-1, 9)],
-    rng_seeds = range(4),
+    widths = [2**i for i in range(1, 9)],
+    rng_seeds = range(10),
     dataset_factory = lambda: make_dataset(batch_size=128, rng_seed=0, in_channels=10, out_channels=2),
-    steps  = 50
+    steps  = 50,
+    param_types = ["muP_SSM","muP_3","standard"]
 )
 runner = CoordinateCheckRunner(training_cfg, coord_cfg)
 runner.run(output_dir='results/coord_check/s5')
