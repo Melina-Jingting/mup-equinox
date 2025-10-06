@@ -112,19 +112,15 @@ def scale_gradients(
         
         if param_type == "muP_3":
             if optimizer_type == "adam_like":
-                # input & biases
-                if (meta.is_vector_like and not meta.is_output_weight) or \
-                    (meta.is_ssm_a): # don't scale SSM A gradients
-                    return grad
                 # output & hidden weights
-                elif meta.is_output_weight or meta.is_hidden_weight: 
+                if meta.is_output_weight or meta.is_hidden_weight: 
                     return grad / meta.width
                 else:
                     return grad
                 
             if optimizer_type == "sgd_like":
                 # input & biases
-                if meta.is_vector_like and not meta.is_output_weight: 
+                if meta.is_vector_like and not meta.is_output_weight and not meta.is_ssm_a:
                     return grad * meta.width
                 # output weights
                 elif meta.is_output_weight: 
@@ -134,9 +130,24 @@ def scale_gradients(
                     return grad
         
         elif param_type == "muP_SSM":
-            if optimizer_type in ("adam_like", "sgd_like"):
+            if optimizer_type =="adam_like":
+                if meta.is_vector_like and not meta.is_output_weight and not meta.is_ssm_a:
+                    return grad * (meta.width ** 0.5)
+                # output & hidden weights
+                elif meta.is_output_weight: 
+                    return grad / (meta.width ** 0.5)
+                else:
+                    return grad
+                
+                # Original MuP_3 scheme
+                # if meta.is_output_weight or meta.is_hidden_weight: 
+                #     return grad / meta.width
+                # else:
+                #     return grad
+            
+            if optimizer_type =="sgd_like":
                 # input & biases
-                if (meta.is_vector_like and not meta.is_output_weight):
+                if meta.is_vector_like and not meta.is_output_weight and not meta.is_ssm_a:
                     return grad * meta.width
                 # output & hidden weights
                 elif meta.is_output_weight: 

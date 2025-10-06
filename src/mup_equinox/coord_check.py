@@ -42,9 +42,10 @@ class CoordinateCheckRunner:
             return model.get_activations(inputs, layer_keys=self.coord_cfg.capture_layers)
 
     def run(self, output_dir):
-        dataset_iter = iter(self.coord_cfg.dataset_factory())
+        train_loader, _ = self.coord_cfg.dataset_factory()
+        dataset_iter = iter(train_loader)
         batch = next(dataset_iter)
-        inputs = batch["inputs"][0]
+        sample_input_for_activation = batch[0][0]
 
         norms, deltas = [], []
         for param_type in self.coord_cfg.param_types:
@@ -58,13 +59,13 @@ class CoordinateCheckRunner:
                     optimizer = cfg.optimizer_factory.build(metadata)
                     opt_state = optimizer.init(eqx.filter(model, eqx.is_inexact_array))
 
-                    a0 = self._get_activations(eqx.nn.inference_mode(model, value=True), inputs, state)
+                    a0 = self._get_activations(eqx.nn.inference_mode(model, value=True), sample_input_for_activation, state)
                     for _ in range(self.coord_cfg.steps):
                         grads = cfg.loss_fn(model, batch, state)
                         updates, opt_state = optimizer.update(grads, opt_state, model)
                         model = eqx.apply_updates(model, updates)
 
-                    a1 = self._get_activations(eqx.nn.inference_mode(model, value=True), inputs, state)
+                    a1 = self._get_activations(eqx.nn.inference_mode(model, value=True), sample_input_for_activation, state)
                     norm_a1 = {k: jnp.mean(jnp.abs(v)) for k, v in a1.items()}
                     norm_delta = {k: jnp.mean(jnp.abs(a1[k] - a0[k])) for k in a1.keys()}
 
@@ -145,7 +146,7 @@ def plot_coord_check_results(
 
             ax.set_title(param_labels.get(param_type, param_type)) if metric == metrics[0] else ax.set_title("")
             ax.set_ylabel(metric_labels.get(metric, metric.replace("_", " ").title())) if col_idx == 0 else ax.set_ylabel("")
-            ax.set_xlabel(r"$\log_2 width\ scale$") if metric == metrics[-1] else ax.set_xlabel("")
+            ax.set_xlabel(r"$\log_2 width\ multiplier$") if metric == metrics[-1] else ax.set_xlabel("")
             ax.set_xticks(range(int(np.min(df["width_multiplier"])), int(np.max(df["width_multiplier"]) + 1)))
             ax.set_yscale("log")
 

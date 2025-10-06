@@ -1,13 +1,4 @@
-from mup_equinox import (
-    TrainingConfig, 
-    CoordinateCheckConfig, 
-    ModelFactory, 
-    OptimizerFactory,
-    CoordinateCheckRunner)
 import equinox as eqx
-import optax
-from typing import Iterator, TypedDict
-from jaxtyping import Array, Float, Integer
 import jax.random as jr
 import jax.numpy as jnp
 import jax
@@ -22,7 +13,6 @@ from jax.nn.initializers import lecun_normal, normal
 from jax.scipy.linalg import block_diag
 
 
-#### Model
 class GLU(eqx.Module):
     w1: eqx.nn.Linear
     w2: eqx.nn.Linear
@@ -550,7 +540,7 @@ class S5Block(eqx.Module):
         else:
             return activations
 
-class SSMDownstreamDecoder(eqx.Module):
+class DeepSSM(eqx.Module):
     encoder: eqx.nn.Linear
     ssm_blocks: List[S5Block]
     decoder: eqx.nn.Linear
@@ -560,11 +550,11 @@ class SSMDownstreamDecoder(eqx.Module):
 
     def __init__(
         self,
-        input_dim,
+        in_dim,
         ssm_io_dim,
         ssm_state_dim,
         ssm_num_layers,
-        output_dim,
+        out_dim,
         ssm_init_diag_blocks: int = 4,
         dropout_p: float = 0.1,
         C_init: str = "trunc_standard_normal",
@@ -580,7 +570,7 @@ class SSMDownstreamDecoder(eqx.Module):
     ):
         encoder_key, block_key, decoder_key = jr.split(key, 3)
 
-        self.encoder = eqx.nn.Linear(input_dim, ssm_io_dim, key=encoder_key)
+        self.encoder = eqx.nn.Linear(in_dim, ssm_io_dim, key=encoder_key)
         self.encoder_dropout = eqx.nn.Dropout(p=dropout_p)
 
         block_keys = jr.split(block_key, ssm_num_layers)
@@ -603,7 +593,7 @@ class SSMDownstreamDecoder(eqx.Module):
             for key in block_keys
         ]
 
-        self.decoder = eqx.nn.Linear(ssm_io_dim, output_dim, key=decoder_key)
+        self.decoder = eqx.nn.Linear(ssm_io_dim, out_dim, key=decoder_key)
         self.decoder_dropout = eqx.nn.Dropout(p=dropout_p)
 
     def __call__(self, x, state, key):
@@ -654,71 +644,3 @@ class SSMDownstreamDecoder(eqx.Module):
             return x, state, activations
         else:
             return activations
-#######
-
-
-###### Dataset 
-class TrainingBatch(TypedDict):
-    inputs: Float[Array, "batch timesteps channels"]
-    labels: Integer[Array, "batch timesteps channels"]
-    
-def make_dataset(batch_size: int = 32, rng_seed: int = 0, timesteps: int = 100, in_channels: int = 10, out_channels: int = 2) -> Iterator[TrainingBatch]:
-    key = jr.PRNGKey(rng_seed)
-    while True:
-        key, input_subkey, label_subkey = jr.split(key, 3)
-        inputs = jr.uniform(
-            input_subkey, minval=0.0, maxval=1.0, shape=(batch_size, timesteps, in_channels)
-        )
-        labels = jr.uniform(
-            label_subkey, minval=0.0, maxval=1.0, shape=(batch_size, timesteps, out_channels)
-        )
-        yield TrainingBatch(inputs=inputs, labels=labels)
-#######
-
-
-@eqx.filter_jit
-@eqx.filter_grad
-def loss_fn(
-    model: eqx.Module, 
-    batch: TrainingBatch,
-    state: eqx.nn.State
-    ) -> tuple[Float[Array, ""], eqx.nn.State]:
-    output, state = jax.vmap(model, in_axes=(0, None, None))(batch["inputs"], state, jr.PRNGKey(0))
-    loss = optax.squared_error(
-        output, batch["labels"]
-    ).mean()
-    return loss
-
-
-model_factory = ModelFactory(
-    constructor=SSMDownstreamDecoder, 
-    base_kwargs={
-        "input_dim": 10,
-        "ssm_io_dim": 16,
-        "ssm_state_dim": 16,
-        "output_dim": 2,
-        "ssm_num_layers": 2
-        },
-    width_kwargs_names=("ssm_io_dim", "ssm_state_dim"),
-    )
-optimizer_factory = OptimizerFactory(
-    optimizer_fn=optax.adam,
-    hyperparams={"learning_rate": 1e-3},
-)
-training_cfg = TrainingConfig(
-    model_factory=model_factory, 
-    optimizer_factory=optimizer_factory, 
-    loss_fn=loss_fn,
-    width_multiplier=4.0
-)
-
-# Coordinate check
-coord_cfg = CoordinateCheckConfig(
-    widths = [2**i for i in range(1, 9)],
-    rng_seeds = range(10),
-    dataset_factory = lambda: make_dataset(batch_size=128, rng_seed=0, in_channels=10, out_channels=2),
-    steps  = 50,
-    param_types = ["muP_SSM","muP_3","standard"]
-)
-runner = CoordinateCheckRunner(training_cfg, coord_cfg)
-runner.run(output_dir='results/coord_check/s5')

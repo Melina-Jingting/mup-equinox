@@ -12,6 +12,8 @@ dependencies = [
     "optax",
     "pandas>=2.3.3",
     "seaborn>=0.13.2",
+    "tensorflow>=2.20.0",
+    "tensorflow-datasets>=4.9.9",
     "tqdm>=4.67.1",
 ]
 
