@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import dataclasses
 from omegaconf import OmegaConf
-from typing import Callable, Sequence, Optional
+from typing import Callable, Sequence, Optional, Iterable
 import equinox as eqx
 import optax
 from .scalers import scale_initializations, scale_gradients
@@ -53,9 +53,9 @@ class ModelFactory:
         base_kwargs = self._build_kwargs(1.0)
         scaled_kwargs = self._build_kwargs(width_multiplier)
 
-        base_model = self.constructor(**base_kwargs, key=jr.PRNGKey(self.rng_seed))
-        model, state = eqx.nn.make_with_state(self.constructor)(
-            **scaled_kwargs, key=jr.PRNGKey(self.rng_seed)
+        base_model, _ = eqx.nn.make_with_state(self.constructor)(**base_kwargs, key=jr.PRNGKey(self.rng_seed))
+        model, state = eqx.nn.make_with_state(self.constructor)(key=jr.PRNGKey(self.rng_seed),
+            **scaled_kwargs
         )
         metadata = build_param_metadata(base_model, model)
         model = scale_initializations(model, metadata, param_type=self.param_type)
@@ -80,7 +80,7 @@ class OptimizerFactory:
                 f"Cannot infer optimizer_type from optimizer_fn name '{self.optimizer_fn.__name__}'. Please use a standard optimizer."
             )
 
-    def build(self, metadata) -> optax.GradientTransformation:
+    def build(self, metadata: ParameterizationMetadata) -> optax.GradientTransformation:
         base_opt = self.optimizer_fn(**self.hyperparams)
         scaled_opt = scale_gradients(
             metadata, optimizer_type=self.optimizer_type, param_type=self.param_type
@@ -92,6 +92,7 @@ class OptimizerFactory:
 class TrainingConfig:
     model_factory: ModelFactory
     optimizer_factory: OptimizerFactory
+    dataset_factory: Callable[[], Iterable]  # yields TrainingBatch
     loss_fn: Callable[[eqx.Module, dict, Optional[eqx.nn.State]], jnp.ndarray]  # (model, batch) -> loss
     width_multiplier: float
     rng_seed: int = 0

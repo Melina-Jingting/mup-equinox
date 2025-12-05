@@ -20,22 +20,24 @@ def _check_path_type(path_leaf, *rest_paths_leaves):
 def _check_type(path_leaf, *rest_paths_leaves):
     path, leaf = path_leaf
     for t, rest_path_leaf in enumerate(rest_paths_leaves):
-        _, rest_leaf = rest_path_leaf
+        rest_path, rest_leaf = rest_path_leaf
         if type(leaf) is not type(rest_leaf):
             raise TypeError(
-                f"Type mismatch: {type(leaf)} vs {type(rest_leaf)} at path {path} for tree {t + 1}"
+                f"Type mismatch: {type(leaf)} vs {type(rest_leaf)} at \npath {path} for tree {t + 1}, \npath {rest_path} for tree {t + 2}"
             )
 
 def _check_ndims(path_leaf, *rest_paths_leaves):
     path, leaf = path_leaf
     for t, rest_path_leaf in enumerate(rest_paths_leaves):
-        _, rest_leaf = rest_path_leaf
+        rest_path, rest_leaf = rest_path_leaf
         if eqx.is_array_like(leaf) and eqx.is_array_like(rest_leaf):
             if isinstance(leaf, (int, float)) and isinstance(rest_leaf, (int, float)):
                 continue 
             if len(leaf.shape) != len(rest_leaf.shape):
                 raise ValueError(
-                    f"#Dim mismatch: {leaf.shape} vs {rest_leaf.shape} at path {path} for tree {t + 1}"
+                    f"#Dim mismatch: {leaf.shape} vs {rest_leaf.shape} at \
+                        \npath {path} for tree {t + 1}\
+                        \npath {rest_path} for tree {t + 2}"
                 )
 
 
@@ -77,16 +79,10 @@ def flexible_path_metadata_tree_map(
 
     @functools.wraps(f)
     def _f(*xs):
-        try:
-            _check_path_type(*xs)
-            _check_type(*xs) if check_type else None
-            _check_ndims(*xs) if check_ndims else None
-            return f(*[x[1] for x in xs])  # pass only the leaves to f
-        except Exception as e:
-            path = xs[0][0]
-            exc = TreePathError(f"Error at leaf with path {path}")
-            exc.path = path
-            raise exc from e
+        _check_path_type(*xs)
+        _check_type(*xs) if check_type else None
+        _check_ndims(*xs) if check_ndims else None
+        return f(*[x[1] for x in xs])  # pass only the leaves to f
 
     tree_paths_leaves, treedef = jt.flatten_with_path(
         tree, is_leaf=is_leaf
@@ -140,15 +136,15 @@ def flexible_path_metadata_tree_map_with_path(
     def _f(*xs):
         path = xs[0][0]
         leaves = [x[1] for x in xs]
-        try:
-            _check_path_type(*xs)
-            _check_type(*xs) if check_type else None
-            _check_ndims(*xs) if check_ndims else None
-            return f(path, *leaves)  # pass only the leaves to f
-        except Exception as e:
-            exc = TreePathError(f"Error at leaf with path {path}")
-            exc.path = path
-            raise exc from e
+        # try:
+        _check_path_type(*xs)
+        _check_type(*xs) if check_type else None
+        _check_ndims(*xs) if check_ndims else None
+        return f(path, *leaves)  # pass only the leaves to f
+        # except Exception as e:
+        #     exc = TreePathError(f"Error at leaf with path {path}")
+        #     exc.path = path
+        #     raise exc from e
 
     tree_paths_leaves, treedef = jt.flatten_with_path(
         tree, is_leaf=is_leaf

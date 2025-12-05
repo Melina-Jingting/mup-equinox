@@ -130,29 +130,20 @@ def scale_gradients(
                     return grad
         
         elif param_type == "muP_SSM":
-            if optimizer_type =="adam_like":
-                if meta.is_vector_like and not meta.is_output_weight and not meta.is_ssm_a:
-                    return grad * (meta.width ** 0.5)
-                # output & hidden weights
-                elif meta.is_output_weight: 
-                    return grad / (meta.width ** 0.5)
-                else:
-                    return grad
-                
-                # Original MuP_3 scheme
-                # if meta.is_output_weight or meta.is_hidden_weight: 
-                #     return grad / meta.width
-                # else:
-                #     return grad
-            
-            if optimizer_type =="sgd_like":
+            if optimizer_type == "sgd_like":
                 # input & biases
                 if meta.is_vector_like and not meta.is_output_weight and not meta.is_ssm_a:
                     return grad * meta.width
-                # output & hidden weights
+                # ssms A parameters 
+                elif meta.is_ssm_a:
+                    return grad * (meta.width ** 0.5)
+                elif meta.is_ssm_b:
+                    return grad * meta.width
+                # output weights
                 elif meta.is_output_weight: 
                     return grad / meta.width
-                else:
+                # hidden weights
+                else: 
                     return grad
         
         elif param_type == "standard":
@@ -160,7 +151,7 @@ def scale_gradients(
                 return grad
             
         raise ValueError(
-            f"""Unsupported param_type '{param_type}'. Only 'muP_3' and 'standard' are supported."""
+            f"""Unsupported param_type '{param_type}'. Only 'muP_3', 'muP_SSM', and 'standard' are supported."""
         )
 
     def init_fn(params: optax.Params) -> optax.OptState:
