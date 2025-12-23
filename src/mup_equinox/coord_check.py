@@ -12,6 +12,9 @@ import inspect
 import matplotlib.lines as mlines
 from .utils import ordered_tree_map
 import argparse
+from tqdm import tqdm
+import sys
+import traceback
 
 @dataclass
 class CoordinateCheckConfig:
@@ -46,7 +49,7 @@ class CoordinateCheckRunner:
         
         rng_seeds = np.random.randint(0, 1e6, size=self.coord_cfg.num_repetitions)
         for param_type in self.coord_cfg.param_types:
-            for width in self.coord_cfg.widths:
+            for width in tqdm(self.coord_cfg.widths, desc=f"Widths ({param_type})"):
                 for seed in rng_seeds:
                     train_loader, _ = cfg.dataset_factory(rng_seed=seed)
                     dataset_iter = iter(train_loader)
@@ -75,10 +78,7 @@ class CoordinateCheckRunner:
                             deltas.append({"param_type": param_type, "width_multiplier": width, "step": s + 1, "rng_seed": seed, **norm_delta})
 
                         if s + 1 == max(self.coord_cfg.steps):
-                            # No need to continue training beyond the max step
-                            # Breaking early may cause a TensorFlow warning about the iterator 
-                            # not being fully read. This is expected and can be ignored or suppressed.
-                            break  
+                            break
 
         self._save_results(norms, deltas, output_dir)
 
@@ -201,7 +201,7 @@ class CoordinateCheckRunner:
             plot_title = (title or "Coordinate Check Results") + (f" (Step {step})" if step is not None else "")
             fig.suptitle(plot_title, y=0.98)
             fig.tight_layout(rect=(0, 0, 1, 0.9))
-            plt.savefig(os.path.join(data_dir, f"coordinate_check_plot{step_suffix}.png"))
+            plt.savefig(os.path.join(data_dir, f"coordinate_check_plot{step_suffix}.pdf"))
             plt.close(fig)
 
 

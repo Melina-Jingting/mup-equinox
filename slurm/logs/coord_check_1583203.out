@@ -1,0 +1,9 @@
+Job running on node: gpu-sr670-21
+GPU allocated: 0
+Collecting uv
+  Downloading uv-0.9.15-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)
+Downloading uv-0.9.15-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (21.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 21.7/21.7 MB 121.5 MB/s eta 0:00:00
+Installing collected packages: uv
+Successfully installed uv-0.9.15
+Running coordinate check: Optimizer=sgd, Steps=[1, 10, 100, 1000]

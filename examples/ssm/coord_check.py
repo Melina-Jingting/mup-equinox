@@ -11,11 +11,18 @@ from typing import Iterator, TypedDict
 from jaxtyping import Array, Float, Integer
 import jax.random as jr
 import jax
+import jax.numpy as jnp
 from ssm import SSMDecoder
 from functools import partial
+import os
+
+# Enable JAX compilation cache to mitigate slow compile times and timeouts
+jax.config.update("jax_compilation_cache_dir", os.path.expanduser("~/.jax_cache"))
+jax.config.update("jax_persistent_cache_min_entry_size_bytes", -1)
+jax.config.update("jax_persistent_cache_min_compile_time_secs", 1)
 
 
-def make_nbit_memory_task_loaders(batch_size: int = 128, rng_seed: int = 0, n_coarse_steps: int = 25, upsampling_rate: int = 4, n_bits: int = 10, p_ticks: float = 0.1) -> tuple[Iterator, Iterator]:
+def make_nbit_memory_task_loaders(batch_size: int = 16, rng_seed: int = 0, n_coarse_steps: int = 25, upsampling_rate: int = 4, n_bits: int = 10, p_ticks: float = 0.1) -> tuple[Iterator, Iterator]:
     from nbit_memory_task import nbatch_nbit_memory_dataloader
     key = jr.PRNGKey(rng_seed)
     key, train_key, test_key = jr.split(key, 3)
@@ -30,9 +37,12 @@ def make_nbit_memory_task_loaders(batch_size: int = 128, rng_seed: int = 0, n_co
 def loss_fn(model, batch, state=None) -> tuple[Float[Array, ""], eqx.nn.State]:
     inputs, labels = batch
     preds, state = jax.vmap(model, axis_name="batch", in_axes=(0, None, None))(inputs, state, jr.PRNGKey(0))
-    loss = optax.squared_error(
-        preds, labels
-    ).mean()
+    
+    # Use squared absolute difference for complex support
+    # optax.squared_error computes (x-y)^2 which is invalid for minimizing distance in complex plane
+    diff = preds - labels
+    loss = jnp.mean(jnp.abs(diff) ** 2)
+    
     return loss
 
 
@@ -66,7 +76,7 @@ training_cfg = TrainingConfig(
     model_factory=model_factory, 
     optimizer_factory=optimizer_factories["sgd"], 
     dataset_factory = partial(make_nbit_memory_task_loaders,
-        batch_size=128, n_coarse_steps=3, upsampling_rate=3, n_bits=2, p_ticks=0.2
+        batch_size=16, n_coarse_steps=3, upsampling_rate=3, n_bits=2, p_ticks=0.2
     ),
     loss_fn=loss_fn,
     width_multiplier=4.0
@@ -74,16 +84,23 @@ training_cfg = TrainingConfig(
 
 # Coordinate check
 coord_cfg = CoordinateCheckConfig(
-    widths          = tuple(2**i for i in range(1, 11)),
+    widths          = tuple(2**i for i in range(1, 12)),
     num_repetitions = 10,
     steps           = (1,100,1000),
     param_types     = ("muP_SSM","muP_3","standard")
 )
 
 if __name__ == "__main__":
+    print(f"JAX devices: {jax.devices()}")
+    
+    # Use absolute path to ensure results are saved where expected
+    output_dir = os.path.abspath('examples/ssm/results')
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Starting coordinate checks. Results will be saved to: {output_dir}")
+    
     run_coordinate_checks(
         training_cfg,
         coord_cfg,
         optimizer_factories,
-        output_base_dir='examples/ssm/results'
+        output_base_dir=output_dir
     )

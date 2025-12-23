@@ -43,6 +43,6 @@ def nbatch_nbit_memory_dataloader(key: Array, batch_size: int = 128, n_coarse_st
     while True:
         key, subkey = jax.random.split(key)
         inputs, targets = build_nbatch_nbit_memory(
-            batch_size, n_coarse_steps, upsampling_rate, n_bits, p_ticks, subkey
+            batch_size, n_coarse_steps, upsampling_rate, n_bits, p_ticks, key
         )
         yield inputs, targets

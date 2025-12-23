@@ -1,0 +1,192 @@
+/var/lib/slurm/slurmd/job1583203/slurm_script: line 21: .venv/bin/activate: No such file or directory
+error: No virtual environment found; run `uv venv` to create an environment, or pass `--system` to install into a non-virtual environment
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/nfs/ghome/live/mlaimon/mup-equinox/examples/ssm/coord_check.py", line 1, in <module>
+    from mup_equinox import (
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/__init__.py", line 8, in <module>
+    from .coord_check import CoordinateCheckConfig, CoordinateCheckRunner
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/coord_check.py", line 3, in <module>
+    import pandas as pd
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/__init__.py", line 26, in <module>
+    from pandas.compat import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/compat/__init__.py", line 29, in <module>
+    from pandas.compat.pyarrow import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/compat/pyarrow.py", line 8, in <module>
+    import pyarrow as pa
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pyarrow/__init__.py", line 65, in <module>
+    import pyarrow.lib as _lib
+Traceback (most recent call last):
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/numpy/core/_multiarray_umath.py", line 44, in __getattr__
+    raise ImportError(msg)
+ImportError: 
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/nfs/ghome/live/mlaimon/mup-equinox/examples/ssm/coord_check.py", line 1, in <module>
+    from mup_equinox import (
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/__init__.py", line 8, in <module>
+    from .coord_check import CoordinateCheckConfig, CoordinateCheckRunner
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/coord_check.py", line 3, in <module>
+    import pandas as pd
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/api.py", line 9, in <module>
+    from pandas.core.dtypes.dtypes import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/dtypes/dtypes.py", line 24, in <module>
+    from pandas._libs import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pyarrow/__init__.py", line 65, in <module>
+    import pyarrow.lib as _lib
+Traceback (most recent call last):
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/numpy/core/_multiarray_umath.py", line 44, in __getattr__
+    raise ImportError(msg)
+ImportError: 
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/nfs/ghome/live/mlaimon/mup-equinox/examples/ssm/coord_check.py", line 1, in <module>
+    from mup_equinox import (
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/__init__.py", line 8, in <module>
+    from .coord_check import CoordinateCheckConfig, CoordinateCheckRunner
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/coord_check.py", line 3, in <module>
+    import pandas as pd
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/api.py", line 28, in <module>
+    from pandas.core.arrays import Categorical
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/__init__.py", line 1, in <module>
+    from pandas.core.arrays.arrow import ArrowExtensionArray
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/arrow/__init__.py", line 5, in <module>
+    from pandas.core.arrays.arrow.array import ArrowExtensionArray
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/arrow/array.py", line 53, in <module>
+    from pandas.core import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/ops/__init__.py", line 8, in <module>
+    from pandas.core.ops.array_ops import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/ops/array_ops.py", line 56, in <module>
+    from pandas.core.computation import expressions
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/computation/expressions.py", line 21, in <module>
+    from pandas.core.computation.check import NUMEXPR_INSTALLED
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/computation/check.py", line 5, in <module>
+    ne = import_optional_dependency("numexpr", errors="warn")
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/compat/_optional.py", line 135, in import_optional_dependency
+    module = importlib.import_module(name)
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/numexpr/__init__.py", line 24, in <module>
+    from numexpr.interpreter import MAX_THREADS, use_vml, __BLOCK_SIZE1__
+AttributeError: _ARRAY_API not found
+
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+Traceback (most recent call last):  File "/nfs/ghome/live/mlaimon/mup-equinox/examples/ssm/coord_check.py", line 1, in <module>
+    from mup_equinox import (
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/__init__.py", line 8, in <module>
+    from .coord_check import CoordinateCheckConfig, CoordinateCheckRunner
+  File "/nfs/ghome/live/mlaimon/mup-equinox/src/mup_equinox/coord_check.py", line 3, in <module>
+    import pandas as pd
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/__init__.py", line 49, in <module>
+    from pandas.core.api import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/api.py", line 28, in <module>
+    from pandas.core.arrays import Categorical
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/__init__.py", line 1, in <module>
+    from pandas.core.arrays.arrow import ArrowExtensionArray
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/arrow/__init__.py", line 5, in <module>
+    from pandas.core.arrays.arrow.array import ArrowExtensionArray
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/arrow/array.py", line 67, in <module>
+    from pandas.core.arrays.masked import BaseMaskedArray
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/arrays/masked.py", line 61, in <module>
+    from pandas.core import (
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/core/nanops.py", line 52, in <module>
+    bn = import_optional_dependency("bottleneck", errors="warn")
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/pandas/compat/_optional.py", line 135, in import_optional_dependency
+    module = importlib.import_module(name)
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/importlib/__init__.py", line 90, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/bottleneck/__init__.py", line 7, in <module>
+    from .move import (move_argmax, move_argmin, move_max, move_mean, move_median,
+Traceback (most recent call last):
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/numpy/core/_multiarray_umath.py", line 44, in __getattr__
+    raise ImportError(msg)
+ImportError: 
+A module that was compiled using NumPy 1.x cannot be run in
+NumPy 2.2.6 as it may crash. To support both 1.x and 2.x
+versions of NumPy, modules must be compiled with NumPy 2.0.
+Some module may need to rebuild instead e.g. with 'pybind11>=2.12'.
+
+If you are a user of the module, the easiest solution will be to
+downgrade to 'numpy<2' or try to upgrade the affected module.
+We expect that some modules will need time to support NumPy 2.
+
+
+ERROR:2025-12-05 14:21:01,375:jax._src.xla_bridge:477: Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 201, in _version_check
+    version = get_version()
+              ^^^^^^^^^^^^^
+RuntimeError: jaxlib/cuda/versions_helpers.cc:81: operation cusparseGetProperty(MAJOR_VERSION, &major) failed: The cuSPARSE library was not found.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 475, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 328, in initialize
+    _check_cuda_versions(raise_on_first_error=True)
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 266, in _check_cuda_versions
+    _version_check("cuSPARSE", cuda_versions.cusparse_get_version,
+  File "/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 205, in _version_check
+    raise RuntimeError(err_msg) from e
+RuntimeError: Unable to load cuSPARSE. Is it installed?
+WARNING:2025-12-05 14:21:01,512:jax._src.xla_bridge:854: An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/nfs/ghome/live/mlaimon/anaconda3/lib/python3.12/site-packages/jax/_src/lax/lax.py:5518: ComplexWarning: Casting complex values to real discards the imaginary part
+  x_bar = _convert_element_type(x_bar, x.aval.dtype, x.aval.weak_type)
+slurmstepd-gpu-sr670-21: error: *** JOB 1583203 ON gpu-sr670-21 CANCELLED AT 2025-12-06T04:01:29 ***

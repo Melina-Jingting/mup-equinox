@@ -1,0 +1,6 @@
+Job running on node: gpu-sr670-20
+GPU allocated: 0
+JAX devices: [CudaDevice(id=0)]
+Starting coordinate checks. Results will be saved to: /nfs/ghome/live/mlaimon/mup-equinox/examples/ssm/results
+Running coordinate check: Optimizer=sgd, Steps=[1, 10, 100, 1000]
+Job completed
