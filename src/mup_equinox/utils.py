@@ -2,10 +2,27 @@ from typing import Any, Callable
 import jax.tree as jt
 import equinox as eqx
 import functools
+from jax.tree_util import GetAttrKey, SequenceKey, DictKey
 
 
 class TreePathError(RuntimeError):
     path: tuple
+
+def get_value_at_path(tree: Any, path: tuple) -> Any:
+    node = tree
+    for key in path:
+        if isinstance(key, GetAttrKey):
+            node = getattr(node, key.name)
+        elif isinstance(key, SequenceKey):
+            node = node[key.idx]
+        elif isinstance(key, DictKey):
+            node = node[key.key]
+        else:
+            try:
+                node = node[key]
+            except Exception:
+                 raise ValueError(f"Unsupported key type: {type(key)}")
+    return node
     
 def _check_path_type(path_leaf, *rest_paths_leaves):
     path, _ = path_leaf

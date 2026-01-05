@@ -1,13 +1,14 @@
+import dataclasses
 import equinox as eqx
 import jax.random as jr
 from .metadata import ParameterizationMetadata
 from typing import Callable
 import optax
-from .utils import flexible_path_metadata_tree_map
+from .utils import flexible_path_metadata_tree_map, flexible_path_metadata_tree_map_with_path, get_value_at_path
 import optax
 import equinox as eqx
 from .metadata import ParameterizationMetadata
-
+import jax.numpy as jnp
 
 def build_base_and_scaled_models(
     model_constructor: Callable[..., eqx.Module],
@@ -24,6 +25,11 @@ def build_base_and_scaled_models(
     Returns:
         (base_model, scaled_model, state)
     """
+    if dataclasses.is_dataclass(base_kwargs):
+        base_kwargs = dataclasses.asdict(base_kwargs)
+    if dataclasses.is_dataclass(scaled_kwargs):
+        scaled_kwargs = dataclasses.asdict(scaled_kwargs)
+        
     key = jr.PRNGKey(
         rng_seed
     )  # Same rng key for both models safe - only scaled model is used.
@@ -59,18 +65,37 @@ def scale_initializations(
         metadata, lambda x: isinstance(x, ParameterizationMetadata)
     )
 
-    def _init_leaf(param, meta):
+    def _init_leaf(path, param, meta):
         if meta is None:
             return param
         
         if param_type == "muP_3":
             return param / (meta.width**0.5) if meta.is_output_weight else param
-
+        
         elif param_type == "muP_SSM":
-            if meta.is_output_weight: 
-                return param / (meta.width**0.5)
             if meta.is_ssm_b:
-                return param * (meta.width**0.5)
+                return param * ((meta.width)**0.5)
+            elif meta.is_output_weight: 
+                return param / (meta.width**0.5)
+            else:
+                return param
+
+        elif param_type == "muP_SSM_Lambda_scaled":
+            if meta.is_ssm_b:
+                parent_path = path[:-1]
+                parent_obj = get_value_at_path(model, parent_path)
+                
+                Lambda_re = parent_obj.Lambda_re
+                Lambda_im = parent_obj.Lambda_im
+                log_step = parent_obj.log_step
+                
+                Lambda = Lambda_re + 1j * Lambda_im
+                step = jnp.exp(log_step)
+                injection_gain = (jnp.exp(step * Lambda) - 1) / Lambda
+                sum_injection_gain = jnp.sum(jnp.abs(injection_gain)**2)
+                return param * ((meta.width)**0.5) / (sum_injection_gain**0.5)
+            elif meta.is_output_weight: 
+                return param / (meta.width**0.5)
             else:
                 return param
             
@@ -80,7 +105,7 @@ def scale_initializations(
         else:
             raise ValueError(f"Unsupported param_type '{param_type}'")
 
-    scaled_params = flexible_path_metadata_tree_map(
+    scaled_params = flexible_path_metadata_tree_map_with_path(
         _init_leaf,
         params,
         meta_params,
@@ -131,20 +156,34 @@ def scale_gradients(
         
         elif param_type == "muP_SSM":
             if optimizer_type == "sgd_like":
-                # input & biases
-                if meta.is_vector_like and not meta.is_output_weight and not meta.is_ssm_a:
-                    return grad * meta.width
-                # ssms A parameters 
-                elif meta.is_ssm_a:
+                if meta.is_ssm_a:
                     return grad * (meta.width ** 0.5)
                 elif meta.is_ssm_b:
+                    return grad * (meta.width ** 0.5)
+                elif meta.is_ssm_log_step:
+                    return grad
+                elif meta.is_vector_like and not meta.is_output_weight:
                     return grad * meta.width
-                # output weights
                 elif meta.is_output_weight: 
                     return grad / meta.width
-                # hidden weights
                 else: 
                     return grad
+                
+        elif param_type == "muP_SSM_Lambda_scaled":
+            if optimizer_type == "sgd_like":
+                if meta.is_ssm_a:
+                    return grad * (meta.width ** 0.5)
+                elif meta.is_ssm_b:
+                    return grad * (meta.width ** 0.5)
+                elif meta.is_ssm_log_step:
+                    return grad
+                elif meta.is_vector_like and not meta.is_output_weight:
+                    return grad * meta.width
+                elif meta.is_output_weight: 
+                    return grad / meta.width
+                else: 
+                    return grad
+        
         
         elif param_type == "standard":
             if optimizer_type in ("adam_like", "sgd_like"):

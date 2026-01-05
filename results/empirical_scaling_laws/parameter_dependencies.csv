@@ -1,0 +1,15 @@
+param_name,detected_target_layer
+encoder.weight,post_encoder
+encoder.bias,post_encoder
+ssm_blocks[0].ssm.Lambda_re,ssm_state_0
+ssm_blocks[0].ssm.Lambda_im,ssm_state_0
+ssm_blocks[0].ssm.B,ssm_state_0
+ssm_blocks[0].ssm.C,ssm_output_0
+ssm_blocks[0].ssm.D,ssm_output_0
+ssm_blocks[0].ssm.log_step,ssm_state_0
+ssm_blocks[0].glu.w1.weight,ssm_post_glu_0
+ssm_blocks[0].glu.w1.bias,ssm_post_glu_0
+ssm_blocks[0].glu.w2.weight,ssm_post_glu_0
+ssm_blocks[0].glu.w2.bias,ssm_post_glu_0
+decoder.weight,output
+decoder.bias,output

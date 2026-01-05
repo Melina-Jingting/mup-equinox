@@ -53,6 +53,19 @@ class ParameterizationMetadata(eqx.Module):
         """A weight that maps from an infinite dimension to an infinite dimension."""
         return self.is_matrix_like
     
+    @property
+    def is_ssm_a(self) -> bool:
+        return self.path_suffix_has("ssm", "Lambda_re") or \
+                self.path_suffix_has("ssm", "Lambda_im") 
+
+    @property
+    def is_ssm_b(self) -> bool:
+        return self.path_suffix_has("ssm", "B")
+    
+    @property
+    def is_ssm_log_step(self) -> bool:
+        return self.path_suffix_has("ssm", "log_step") 
+    
     def path_suffix_has(self, *segments: str) -> bool:
         if not segments:
             return True
@@ -70,16 +83,6 @@ class ParameterizationMetadata(eqx.Module):
             if keys[start : start + window] == pattern:
                 return True
         return False
-    
-    @property
-    def is_ssm_a(self) -> bool:
-        return self.path_suffix_has("ssm", "Lambda_re") or \
-                self.path_suffix_has("ssm", "Lambda_im") or \
-                self.path_suffix_has("ssm", "log_step")
-
-    @property
-    def is_ssm_b(self) -> bool:
-        return self.path_suffix_has("ssm", "B")
         
 
 

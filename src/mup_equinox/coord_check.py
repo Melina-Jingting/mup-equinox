@@ -34,7 +34,7 @@ class CoordinateCheckRunner:
         self.coord_cfg = coord_cfg
 
     def _get_activations(self, model, inputs, state=None):
-        """Intelligently call get_activations based on the method signature."""
+        """Adaptively all get_activations based on the method signature."""
         sig = inspect.signature(model.get_activations)
         
         # Check if 'state' is in the signature
@@ -71,8 +71,9 @@ class CoordinateCheckRunner:
                         
                         if s + 1 in self.coord_cfg.steps:
                             a1 = self._get_activations(eqx.nn.inference_mode(model, value=True), sample_input_for_activation, state)
-                            norm_a1 = {k: jnp.mean(jnp.abs(v)) for k, v in a1.items()}
-                            norm_delta = {k: jnp.mean(jnp.abs(a1[k] - a0[k])) for k in a1.keys()}
+                            # Compute RMS (Root Mean Square) to match ||x||_2 / sqrt(N)
+                            norm_a1 = {k: jnp.mean(jnp.linalg.norm(v, axis=-1)) / jnp.sqrt(v.shape[-1]) for k, v in a1.items()}
+                            norm_delta = {k: jnp.mean(jnp.linalg.norm(a1[k] - a0[k], axis=-1)) / jnp.sqrt(a1[k].shape[-1]) for k in a1.keys()}
 
                             norms.append({"param_type": param_type, "width_multiplier": width, "step": s + 1, "rng_seed": seed, **norm_a1})
                             deltas.append({"param_type": param_type, "width_multiplier": width, "step": s + 1, "rng_seed": seed, **norm_delta})
@@ -114,7 +115,6 @@ class CoordinateCheckRunner:
         all_steps = set()
         for metric in metrics:
             df = pd.read_csv(os.path.join(data_dir, f"{metric}.csv"))
-            df["width_multiplier"] = np.log2(df["width_multiplier"])
             dfs[metric] = df
             if "step" in df.columns:
                 all_steps.update(df["step"].unique())
@@ -175,6 +175,7 @@ class CoordinateCheckRunner:
                     if not df.empty:
                         ax.set_xticks(range(int(np.min(df["width_multiplier"])), int(np.max(df["width_multiplier"]) + 1)))
                     ax.set_yscale("log")
+                    ax.set_xscale("log", base=2)
 
             if layer_order:
                 legend_handles = [
