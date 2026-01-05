@@ -1,4 +1,4 @@
-from .metadata import ParameterizationMetadata
+from .metadata import ParameterizationMetadata, build_param_metadata
 from .scalers import (
     build_base_and_scaled_models,
     scale_initializations,
